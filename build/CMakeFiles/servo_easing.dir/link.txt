@@ -1,2 +1,0 @@
-/usr/bin/ar qc libservo_easing.a CMakeFiles/servo_easing.dir/src/SE_servo.c.o CMakeFiles/servo_easing.dir/src/SE_controller.c.o CMakeFiles/servo_easing.dir/src/SE_errors.c.o CMakeFiles/servo_easing.dir/src/SE_ticks.c.o CMakeFiles/servo_easing.dir/src/servo_easing.c.o CMakeFiles/servo_easing.dir/src/SE_algorithm.c.o CMakeFiles/servo_easing.dir/src/Dummy/dummy_controller.c.o CMakeFiles/servo_easing.dir/3rd_party/logging/log.c.o
-/usr/bin/ranlib libservo_easing.a
