@@ -1,18 +1,11 @@
 project(servo_easing LANGUAGES C)
 set(CMAKE_C_FLAGS "-Wall")
 cmake_minimum_required(VERSION 3.10)
-option(HOST_BUILD "Build servo easing library on host machine" ON)
-option(TARGET_BUILD "Build servo easing library for target by cross" OFF)
-option(USE_FLOAT "Build servo easing library with no floating point op" OFF)
-option(BUILD_TEST "Buil test app for library with dymmy controller" ON)
-
-if ((CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64.*") OR (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64"))
-    add_definitions(-DHOST_BUILD)
-    add_definitions(-DUSE_PRINTF_LOG)
-else()   
-    add_definitions(-DTARGET_BUILD)
-    # add_definitions(-DUSE_NONE_LOG)
-endif()
+option(EASING_HOST_BUILD "Build servo easing library on host machine" OFF)
+option(EASING_TARGET_BUILD "Build servo easing library for target by cross" ON)
+option(EASING_USE_FLOAT "Build servo easing library with no floating point op" ON)
+option(EASING_BUILD_TEST "Buil test app for library with dymmy controller" ON)
+add_definitions(-DUSE_PRINTF_LOG)
 
 set(servo_easing_src    ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_servo.c
                         ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_controller.c
@@ -23,20 +16,20 @@ set(servo_easing_src    ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_servo.c
 
 set(third_party_src     ${CMAKE_CURRENT_SOURCE_DIR}/3rd_party/logging/log.c)
 
-if(USE_FLOAT)
+if(EASING_USE_FLOAT)
     list(APPEND servo_easing_src ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_algorithm.c)
 elseif(NOT USE_FLOAT)
     list(APPEND servo_easing_src ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_algorithm_no_fp.c)
-endif(USE_FLOAT)
+endif(EASING_USE_FLOAT)
 
-if(HOST_BUILD)
+if(EASING_HOST_BUILD)
     list(APPEND servo_easing_src ${CMAKE_CURRENT_SOURCE_DIR}/src/Dummy/dummy_controller.c)
-endif(HOST_BUILD)
+endif(EASING_HOST_BUILD)
 
-if(TARGET_BUILD)
+if(EASING_TARGET_BUILD)
     list(APPEND servo_easing_src ${CMAKE_CURRENT_SOURCE_DIR}/src/PCA9685_linux/pca9685_linux_controller.c
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/MTK_9050/mtk_9050_linux_controller.c)
-endif(TARGET_BUILD)
+endif(EASING_TARGET_BUILD)
 
 if (MCU_WITH_EXPANSION)
     list(APPEND servo_easing_src ${CMAKE_CURRENT_SOURCE_DIR}/src/PCA9685/pca9685_controller.c)
@@ -53,15 +46,19 @@ target_include_directories(${PROJECT_NAME} PRIVATE include)
 target_include_directories(${PROJECT_NAME} PRIVATE "internal")
 target_include_directories(${PROJECT_NAME} PRIVATE 3rd_party/logging)
 
-if(HOST_BUILD)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DUMMY_CONTROLLER)
-endif(HOST_BUILD)
+if (EASING_USE_FLOAT)
+    target_link_libraries(${PROJECT_NAME} m)
+endif (EASING_USE_FLOAT)
 
-if(TARGET_BUILD)
+if(EASING_HOST_BUILD)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DUMMY_CONTROLLER)
+endif(EASING_HOST_BUILD)
+
+if(EASING_TARGET_BUILD)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_PCA9685_LINUX_CONTROLLER)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_MTK_9050_LINUX_CONTROLLER)
     target_link_libraries(${PROJECT_NAME} utils_olli)
-endif(TARGET_BUILD)
+endif(EASING_TARGET_BUILD)
 
 if (MCU_WITH_EXPANSION)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_PCA9685_CONTROLLER)
@@ -71,6 +68,6 @@ if (STM32_BOARD)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_STM32_CONTROLLER)
 endif(STM32_BOARD)
 
-if (BUILD_TEST)
+if (EASING_BUILD_TEST)
 add_subdirectory(test)
-endif (BUILD_TEST)
+endif (EASING_BUILD_TEST)

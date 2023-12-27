@@ -15,10 +15,10 @@ extern "C"
 #ifdef USE_PRINTF_LOG
 #include "log.h"
 
-#define SE_DEBUG(fmt, ...)      log_debug(fmt, ##__VA_ARGS__)
-#define SE_INFO(fmt, ...)       log_info(fmt, ##__VA_ARGS__)
-#define SE_WARNING(fmt, ...)    log_warn(fmt, ##__VA_ARGS__)
-#define SE_ERROR(fmt, ...)      log_error(fmt, ##__VA_ARGS__)
+#define SE_DEBUG(...)      log_debug(__VA_ARGS__)
+#define SE_INFO(...)       log_info(__VA_ARGS__)
+#define SE_WARNING(...)    log_warn(__VA_ARGS__)
+#define SE_ERROR(...)      log_error(__VA_ARGS__)
 #endif /*USE_PRINTF_LOG*/
 
 #ifdef USE_OLLI_LOG
