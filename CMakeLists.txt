@@ -3,9 +3,9 @@ set(CMAKE_C_FLAGS "-Wall")
 cmake_minimum_required(VERSION 3.10)
 option(EASING_HOST_BUILD "Build servo easing library on host machine" OFF)
 option(EASING_TARGET_BUILD "Build servo easing library for target by cross" ON)
-option(EASING_USE_FLOAT "Build servo easing library with no floating point op" ON)
+option(EASING_USE_FLOAT "Build servo easing library with no floating point op" OFF)
 option(EASING_BUILD_TEST "Buil test app for library with dymmy controller" ON)
-add_definitions(-DUSE_PRINTF_LOG)
+add_definitions(-DUSE_OLLI_LOG)
 
 set(servo_easing_src    ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_servo.c
                         ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_controller.c

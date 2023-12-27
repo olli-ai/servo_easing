@@ -25,7 +25,7 @@
 
 #define DEV_NAME "mstar,pwm"
 #define DEFAULT_MTK_9050_PERIOD_US (40000)
-#define PULSE_UNIT_US(period_us) ((period_us) / 400)
+#define PULSE_UNIT_US(period_us) ((float)(period_us * 100) / 400)
 
 static SE_ret_t MTK_9050_linux_init_device(struct SE_controller *controller);
 static void MTK_9050_linux_deinit_device(struct SE_controller *controller);

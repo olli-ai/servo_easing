@@ -17,7 +17,7 @@
 #define DEFAULT_DUMMY_UNITS_FOR_90_DEGREE (111 + ((491 - 111) / 2))  // 301 = 1472 us
 #define DEFAULT_DUMMY_UNITS_FOR_135_DEGREE (491 - ((491 - 111) / 4)) // 369
 #define DEFAULT_DUMMY_UNITS_FOR_180_DEGREE 491                       // 491.52 = 2400 us
-#define PULSE_UNIT_US(period_us) ((period_us) / 400)
+#define PULSE_UNIT_US(period_us) ((period_us) * 100 / 400)
 #define DEFAULT_DUMMY_PERIOD_US      (40000)
 
 static SE_ret_t dummy_init_device(struct SE_controller *controller);

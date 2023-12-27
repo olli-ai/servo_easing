@@ -7,7 +7,7 @@
 #define DEFAULT_PCA9685_UNITS_FOR_135_DEGREE (491 - ((491 - 111) / 4)) // 369
 #define DEFAULT_PCA9685_UNITS_FOR_180_DEGREE  491 // 491.52 = 2400 us
 
-#define PULSE_UNIT_US(period_us) ((period_us) / 4096)
+#define PULSE_UNIT_US(period_us) ((period_us * 100) / 4096)
 #define DEFAULT_DMMY_PERIOD_US      (20000)
 
 static SE_ret_t PCA9685_init_device(struct SE_controller *controller);

@@ -29,7 +29,7 @@
 #define PCA9685_PRESCALER_MS(ms) ((PCA9685_ACTUAL_CLOCK_FREQUENCY / (4096L * (1000 / (ms))) - 1))
 
 #define DEV_NAME "nxp,pca9685-pwm"
-#define PULSE_UNIT_US(period_us) ((period_us) / 4096)
+#define PULSE_UNIT_US(period_us) ((period_us * 100) / 4096)
 #define DEFAULT_PCA9685_PERIOD_US (20000)
 
 static SE_ret_t PCA9685_linux_init_device(struct SE_controller *controller);
