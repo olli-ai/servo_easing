@@ -29,7 +29,7 @@
 #define PCA9685_PRESCALER_MS(ms) ((PCA9685_ACTUAL_CLOCK_FREQUENCY / (4096L * (1000 / (ms))) - 1))
 
 #define DEV_NAME "nxp,pca9685-pwm"
-#define PULSE_UNIT_US(period_us) ((float)(period_us) / 4096)
+#define PULSE_UNIT_US(period_us) ((period_us) / 4096)
 #define DEFAULT_PCA9685_PERIOD_US (20000)
 
 static SE_ret_t PCA9685_linux_init_device(struct SE_controller *controller);
@@ -41,14 +41,14 @@ static SE_ret_t PCA9685_linux_set_period(struct SE_controller *controller, uint8
 static const struct SE_controller_info *PCA9685_linux_get_info_ref(struct SE_controller *controller);
 static struct SE_controller_info PCA9685_linux_get_info_copy(struct SE_controller *controller);
 static SE_ret_t PCA9685_linux_set_id(struct SE_controller *controller, int id);
-static float PCA9685_linux_get_pulse_resolution(struct SE_controller *controller, uint8_t servo_id);
+static uint32_t PCA9685_linux_get_pulse_resolution(struct SE_controller *controller, uint8_t servo_id);
 
 struct pca9685_linux_servo_info
 {
     bool enable;
     uint32_t period_us;
     uint32_t duty_us;
-    float pwm_resolution;
+    uint32_t pwm_resolution;
     bool is_open;
 };
 

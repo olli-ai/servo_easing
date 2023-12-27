@@ -195,7 +195,7 @@ static void _SE_servo_moving_update(SE_servo_t *servo)
     struct _se_servo_data *data = (struct _se_servo_data *)servo->servo_data;
     if (_SE_servo_is_destination_reach(data))
     {
-        float unit_per_us = servo->controller->get_pulse_resolution(servo->controller, servo->id);
+        uint32_t unit_per_us = servo->controller->get_pulse_resolution(servo->controller, servo->id);
         uint32_t duty = data->end_units * unit_per_us;
         servo->controller->set_duty(servo->controller, servo->id, duty);
         data->await_action = eSERVO_ASYNC_STOP;
@@ -221,8 +221,8 @@ static void _SE_servo_moving_update(SE_servo_t *servo)
         break;
     }
     
-    float unit_per_deg = (info_ref->units_for_180_degree - info_ref->units_for_0_degree) / 180;
-    float unit_per_us = servo->controller->get_pulse_resolution(servo->controller, servo->id);
+    uint32_t unit_per_deg = (info_ref->units_for_180_degree - info_ref->units_for_0_degree) / 180;
+    uint32_t unit_per_us = servo->controller->get_pulse_resolution(servo->controller, servo->id);
     uint32_t duty = data->current_units * unit_per_us;
     data->current_angle = (data->current_units - info_ref->units_for_0_degree) / unit_per_deg;
     servo->controller->set_duty(servo->controller, servo->id, duty);

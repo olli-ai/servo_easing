@@ -35,13 +35,27 @@ uint32_t SE_algorithm_update(SE_servo_t *servo)
     return (uint32_t)servo_value;
 }
 
+static uint32_t _SE_get_elapse_ticks(SE_servo_t *servo)
+{
+    uint32_t milis_since_start = 0;
+    if (SE_tick_get_current_tick() < SE_servo_get_start_move_milis(servo))
+    {
+        milis_since_start = (0xffffffff - SE_servo_get_start_move_milis(servo)) + SE_tick_get_current_tick(); 
+    } else
+    {
+        milis_since_start = SE_tick_get_current_tick() - SE_servo_get_start_move_milis(servo);
+    }
+
+    return milis_since_start;
+}
+
 static float SE_move_in_update(SE_servo_t *servo)
 {
-    uint32_t milis_since_start = SE_tick_get_current_tick() - SE_servo_get_start_move_milis(servo);
+    uint32_t milis_since_start = _SE_get_elapse_ticks(servo);
     SE_DEBUG("Milis since start %ld", milis_since_start);
     if (milis_since_start > SE_servo_get_milis_to_complete_move(servo))
     {
-        return 100;
+        return 1;
     }
 
     float time_factor = (float)milis_since_start / SE_servo_get_milis_to_complete_move(servo);
@@ -52,11 +66,11 @@ static float SE_move_in_update(SE_servo_t *servo)
 
 static float SE_move_out_update(SE_servo_t *servo)
 {
-    uint32_t milis_since_start = SE_tick_get_current_tick() - SE_servo_get_start_move_milis(servo);
-    SE_DEBUG("Milis since start %ld", milis_since_start);
+    uint32_t milis_since_start = _SE_get_elapse_ticks(servo);
+
     if (milis_since_start > SE_servo_get_milis_to_complete_move(servo))
     {
-        return 100;
+        return 1;
     }
     float time_factor = (float)milis_since_start / SE_servo_get_milis_to_complete_move(servo);
     float movement_completed = 1.0f - (float)SE_easing_function(servo, (1.0f - time_factor));
@@ -65,8 +79,8 @@ static float SE_move_out_update(SE_servo_t *servo)
 
 static float SE_move_in_out_update(SE_servo_t *servo)
 {
-    uint32_t milis_since_start = SE_tick_get_current_tick() - SE_servo_get_start_move_milis(servo);
-    SE_DEBUG("Milis since start %ld", milis_since_start);
+    uint32_t milis_since_start = _SE_get_elapse_ticks(servo);
+
     if (milis_since_start > SE_servo_get_milis_to_complete_move(servo))
     {
         return 1;
@@ -89,11 +103,11 @@ static float SE_move_in_out_update(SE_servo_t *servo)
 
 static float SE_move_bouncing_out_in_update(SE_servo_t *servo)
 {
-uint32_t milis_since_start = SE_tick_get_current_tick() - SE_servo_get_start_move_milis(servo);
+    uint32_t milis_since_start = _SE_get_elapse_ticks(servo);
     SE_DEBUG("Milis since start %ld", milis_since_start);
     if (milis_since_start > SE_servo_get_milis_to_complete_move(servo))
     {
-        return 100;
+        return 1;
     }
     float time_factor = (float)milis_since_start / SE_servo_get_milis_to_complete_move(servo);
     float movement_completed = 0.0f;

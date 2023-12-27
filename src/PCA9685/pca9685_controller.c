@@ -19,7 +19,7 @@ static SE_ret_t PCA9685_set_period(struct SE_controller *controller, uint8_t ser
 static const struct SE_controller_info *PCA9685_get_info_ref(struct SE_controller *controller);
 static struct SE_controller_info PCA9685_get_info_copy(struct SE_controller *controller);
 static SE_ret_t PCA9685_set_id(struct SE_controller *controller, int id);
-static float PCA9685_get_pulse_resolution(struct SE_controller *controller, uint8_t servo_id);
+static uint32_t PCA9685_get_pulse_resolution(struct SE_controller *controller, uint8_t servo_id);
 
 struct pca9685_servo_info
 {

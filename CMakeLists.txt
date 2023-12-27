@@ -1,15 +1,17 @@
 project(servo_easing LANGUAGES C)
 set(CMAKE_C_FLAGS "-Wall")
 cmake_minimum_required(VERSION 3.10)
+option(HOST_BUILD "Build servo easing library on host machine" ON)
+option(TARGET_BUILD "Build servo easing library for target by cross" OFF)
+option(USE_FLOAT "Build servo easing library with no floating point op" OFF)
+option(BUILD_TEST "Buil test app for library with dymmy controller" ON)
 
 if ((CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64.*") OR (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64"))
     add_definitions(-DHOST_BUILD)
     add_definitions(-DUSE_PRINTF_LOG)
-    set(HOST_BUILD ON)
 else()   
     add_definitions(-DTARGET_BUILD)
     # add_definitions(-DUSE_NONE_LOG)
-    set(TARGET_BUILD ON)
 endif()
 
 set(servo_easing_src    ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_servo.c
@@ -17,10 +19,15 @@ set(servo_easing_src    ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_servo.c
                         ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_errors.c
                         ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_ticks.c
                         ${CMAKE_CURRENT_SOURCE_DIR}/src/servo_easing.c
-                        ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_algorithm.c
                         )
 
 set(third_party_src     ${CMAKE_CURRENT_SOURCE_DIR}/3rd_party/logging/log.c)
+
+if(USE_FLOAT)
+    list(APPEND servo_easing_src ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_algorithm.c)
+elseif(NOT USE_FLOAT)
+    list(APPEND servo_easing_src ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_algorithm_no_fp.c)
+endif(USE_FLOAT)
 
 if(HOST_BUILD)
     list(APPEND servo_easing_src ${CMAKE_CURRENT_SOURCE_DIR}/src/Dummy/dummy_controller.c)
@@ -42,14 +49,9 @@ if (STM32_BOARD)
 endif(STM32_BOARD)
 
 add_library(${PROJECT_NAME} STATIC ${servo_easing_src} ${third_party_src})
-add_executable(servo_easing_test ${CMAKE_CURRENT_SOURCE_DIR}/test/test_servo_easing.c)
-target_link_libraries(servo_easing_test ${PROJECT_NAME} m)
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 target_include_directories(${PROJECT_NAME} PRIVATE "internal")
 target_include_directories(${PROJECT_NAME} PRIVATE 3rd_party/logging)
-target_include_directories(servo_easing_test PRIVATE include)
-target_include_directories(servo_easing_test PRIVATE 3rd_party/logging)
-target_include_directories(servo_easing_test PRIVATE "internal")
 
 if(HOST_BUILD)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DUMMY_CONTROLLER)
@@ -68,3 +70,7 @@ endif(MCU_WITH_EXPANSION)
 if (STM32_BOARD)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_STM32_CONTROLLER)
 endif(STM32_BOARD)
+
+if (BUILD_TEST)
+add_subdirectory(test)
+endif (BUILD_TEST)
