@@ -1,4 +1,5 @@
-#include "mtk_9050_linux_controller.h"
+#include "mtk_9050_controller.h"
+#include "mtk_9050_pwm.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -8,6 +9,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include "SE_servo.h"
 #include "SE_errors.h"
 #include "SE_logging.h"
 
@@ -23,7 +25,6 @@
 #define DEFAULT_MTK_9050_UNITS_FOR_0_DEGREE 111
 #define DEFAULT_MTK_9050_UNITS_FOR_180_DEGREE 491
 
-#define DEV_NAME "mstar,pwm"
 #define DEFAULT_MTK_9050_PERIOD_US (40000)
 #define PULSE_UNIT_US(period_us) ((float)(period_us * 100) / 400)
 
@@ -37,6 +38,7 @@ static const struct SE_controller_info *MTK_9050_linux_get_info_ref(struct SE_co
 static struct SE_controller_info MTK_9050_linux_get_info_copy(struct SE_controller *controller);
 static SE_ret_t MTK_9050_linux_set_id(struct SE_controller *controller, int id);
 static uint32_t MTK_9050_linux_get_pulse_resolution(struct SE_controller *controller, uint8_t servo_id);
+static SE_ret_t MTK_9050_linux_servo_callback_register(void *servo);
 
 struct mtk_9050_linux_servo_info
 {
@@ -64,14 +66,10 @@ static struct mtk_9050_linux_data controller_data = {
         .units_for_0_degree = DEFAULT_MTK_9050_UNITS_FOR_0_DEGREE,
         .units_for_180_degree = DEFAULT_MTK_9050_UNITS_FOR_180_DEGREE,
     },
-    .servo = {{
-        .duty_us = 0,
-        .period_us = DEFAULT_MTK_9050_PERIOD_US,
-        .enable = false,
-        .pwm_resolution = PULSE_UNIT_US(DEFAULT_MTK_9050_PERIOD_US),
-    }},
+    .servo = {{0}},
     .pin_map = {15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     .is_open = false,
+    .pwm_dev_name = NULL,
 };
 
 static struct SE_controller mtk_9050_linux_controller = {
@@ -85,47 +83,10 @@ static struct SE_controller mtk_9050_linux_controller = {
     .get_info_copy = MTK_9050_linux_get_info_copy,
     .set_id = MTK_9050_linux_set_id,
     .get_pulse_resolution = MTK_9050_linux_get_pulse_resolution,
+    .register_servo_event = MTK_9050_linux_servo_callback_register,
     .controller_data = (void *)&controller_data,
 };
 
-static bool is_pca9685_device(const char *dev_folder)
-{
-    char file_name[128] = {'\0'};
-    bool ret = false;
-    sprintf(file_name, "/sys/class/pwm/%s/device/of_node/compatible", dev_folder);
-    if (access(file_name, F_OK) == -1)
-    {
-        SE_DEBUG("Unable to open device name %s, ignore", file_name);
-        return ret;
-    }
-    FILE *file = fopen(file_name, "r");
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    char *device_name = malloc(file_size + 1);
-    if (device_name == NULL)
-    {
-        fclose(file);
-        return ret;
-    }
-    fread(device_name, sizeof(char), file_size, file);
-    for (int i = 0; i < file_size; i++)
-    {
-        if (device_name[i] == '\n' || device_name[i] == '\r')
-        {
-            device_name[i] = 0;
-        }
-    }
-
-    fclose(file);
-    if (!strcmp(device_name, DEV_NAME))
-    {
-        SE_DEBUG("Found %s", device_name);
-        ret = true;
-    }
-    free(device_name);
-    return ret;
-}
 
 static SE_ret_t MTK_9050_linux_init_device(struct SE_controller *controller)
 {
@@ -154,7 +115,7 @@ static SE_ret_t MTK_9050_linux_init_device(struct SE_controller *controller)
             continue;
         }
         SE_DEBUG("Operation on dir %s", entry->d_name);
-        if (is_pca9685_device(entry->d_name))
+        if (mtk_9050_pwm_is_device(entry->d_name))
         {
             char dev_name[128] = "";
             int num_byte = snprintf(dev_name, 128, "/sys/class/pwm/%s", entry->d_name);
@@ -192,75 +153,19 @@ static void MTK_9050_linux_deinit_device(struct SE_controller *controller)
     }
 
     struct mtk_9050_linux_data *data = (struct mtk_9050_linux_data *)controller->controller_data;
+    for (int i = 0; i < MTK_9050_MAX_SERVO; i++)
+    {
+        if (data->servo[i].enable == true)
+        {
+            mtk_9050_pwm_unexport_pin(data->pwm_dev_name, data->pin_map[i]);
+            data->servo[i].enable = false;
+        }
+    }
+
     free(data->pwm_dev_name);
     data->pwm_dev_name = NULL;
     data->is_open = false;
 }
-
-static SE_ret_t _MTK_9050_linux_export_servo(struct mtk_9050_linux_data *data, uint8_t servo_id)
-{
-    char servo_name[256] = {'\0'};
-    snprintf(servo_name, 256, "%s/pwm%d", data->pwm_dev_name, servo_id);
-    SE_ret_t ret = kSE_SUCCESS;
-    if (access(servo_name, F_OK) != -1)
-    {
-        SE_INFO("Already export, ignore");
-    }
-    else
-    {
-        char path_buffer[256] = {'\0'};
-        snprintf(path_buffer, 256, "%s/export", data->pwm_dev_name);
-        FILE *export = fopen(path_buffer, "w");
-        if (export == NULL)
-        {
-            SE_set_error("Unable to open export path");
-            SE_ERROR("Unable to open export path at %s", path_buffer);
-            ret = kSE_FAILED;
-        }
-        else
-        {
-            int ret = fprintf(export, "%d", data->pin_map[servo_id]);
-            if (ret < 0)
-            {
-                SE_WARNING("Open servo error = %d, error_msg = %s", errno, strerror(errno));
-                ret = kSE_FAILED;
-            }
-            fclose(export);
-        }
-    }
-
-    return ret;
-}
-
-static SE_ret_t _MTK_9050_linux_set_period(struct mtk_9050_linux_data *data, uint8_t servo_id, uint32_t period_us)
-{
-    if (!data->servo[servo_id].enable)
-    {
-        SE_set_error("Servo is not open to set period");
-        return kSE_FAILED;
-    }
-
-    char servo_period_path[128] = "";
-    snprintf(servo_period_path, 128, "%s/pwm%d/period", data->pwm_dev_name, data->pin_map[servo_id]);
-    SE_DEBUG("Servo period path is %s", servo_period_path);
-    FILE *servo_period_fd = fopen(servo_period_path, "w");
-    if (servo_period_fd == NULL)
-    {
-        SE_set_error("Servo unable to open period fd");
-        return kSE_FAILED;
-    }
-
-    int ret = fprintf(servo_period_fd, "%d", period_us);
-    if (ret < 0)
-    {
-        SE_WARNING("Write period for servo error = %d, error_msg = %s", errno, strerror(errno));
-    }
-    fclose(servo_period_fd);
-    SE_DEBUG("Period for servo %d set to %u", servo_id, period_us);
-    data->servo[servo_id].period_us = period_us;
-    return kSE_SUCCESS;
-}
-
 
 static SE_ret_t _MTK_9050_linux_open_servo(struct mtk_9050_linux_data *data, uint8_t servo_id)
 {
@@ -269,7 +174,7 @@ static SE_ret_t _MTK_9050_linux_open_servo(struct mtk_9050_linux_data *data, uin
         return kSE_OUT_OF_RANGE;
     }
 
-    SE_ret_t ret = _MTK_9050_linux_export_servo(data, servo_id);
+    SE_ret_t ret = mtk_9050_pwm_export_pin(data->pwm_dev_name, data->pin_map[servo_id]);
     if (ret != kSE_SUCCESS)
     {
         return ret;
@@ -285,30 +190,13 @@ static SE_ret_t _MTK_9050_linux_open_servo(struct mtk_9050_linux_data *data, uin
     data->servo[servo_id] = servo;
     data->servo[servo_id].enable = true;
 
-    ret = _MTK_9050_linux_set_period(data, servo_id, DEFAULT_MTK_9050_PERIOD_US);
+    ret = mtk_9050_pwm_set_period(data->pwm_dev_name, data->pin_map[servo_id], DEFAULT_MTK_9050_PERIOD_US);
     if (ret != kSE_SUCCESS)
     {
         return ret;
     }
 
-    char path_buffer[256] = {0};
-    snprintf(path_buffer, 256, "%s/pwm%d/enable", data->pwm_dev_name, data->pin_map[servo_id]);
-    FILE *enable = fopen(path_buffer, "w");
-    if (enable == NULL)
-    {
-        SE_ERROR("Unable to open enable path at %s", path_buffer);
-        SE_set_error("Unable to open enable path");
-        ret = kSE_FAILED;
-    }
-    else
-    {
-        int ret = fprintf(enable, "%d", 1);
-        if (ret < 0)
-        {
-            SE_WARNING("Enable servo error = %d, error_msg = %s", errno, strerror(errno));
-        }
-        fclose(enable);
-    }
+    ret = mtk_9050_pwm_enable_pin(data->pwm_dev_name, data->pin_map[servo_id]);
     return ret;
 }
 
@@ -334,27 +222,14 @@ static SE_ret_t MTK_9050_linux_open_servo(struct SE_controller *controller, uint
 
 static SE_ret_t _MTK_9050_linux_close_servo(struct mtk_9050_linux_data *data, uint8_t servo_id)
 {
-    char unexport_path[256] = {'\0'};
-    snprintf(unexport_path, 256, "%s/unexport", data->pwm_dev_name);
-    FILE *unexport = fopen(unexport_path, "w");
-    SE_ret_t ret = kSE_SUCCESS;
-    if (unexport == NULL)
+    SE_ret_t ret = mtk_9050_pwm_disable_pin(data->pwm_dev_name, data->pin_map[servo_id]);
+    if (ret != kSE_SUCCESS)
     {
-        SE_set_error("Unable to open export path");
-        ret = kSE_FAILED;
-    }
-    else
+        SE_WARNING("Unable to disable pin, pin remains open");
+    } else
     {
-        int ret = fprintf(unexport, "%d", data->pin_map[servo_id]);
-        if (ret < 0)
-        {
-            SE_WARNING("Close servo error = %d, error_msg = %s", errno, strerror(errno));
-        }
-        else
-        {
-            data->servo[servo_id].enable = false;
-        }
-        fclose(unexport);
+        ret = mtk_9050_pwm_unexport_pin(data->pwm_dev_name, data->pin_map[servo_id]);
+        data->servo[servo_id].enable = false;
     }
     return ret;
 }
@@ -387,26 +262,7 @@ static SE_ret_t _MTK_9050_linux_set_duty(struct mtk_9050_linux_data *data, uint8
         return kSE_FAILED;
     }
 
-    char servo_duty_path[128] = "";
-    snprintf(servo_duty_path, 128, "%s/pwm%d/duty_cycle", data->pwm_dev_name, data->pin_map[servo_id]);
-    SE_DEBUG("Servo duty path is %s", servo_duty_path);
-    FILE *servo_duty = fopen(servo_duty_path, "w");
-    if (servo_duty == NULL)
-    {
-        SE_set_error("Servo unable to open duty fd");
-        return kSE_FAILED;
-    }
-
-    int ret = fprintf(servo_duty, "%d", duty_us);
-    if (ret < 0)
-    {
-        SE_WARNING("Write duty for servo error = %d, error_msg = %s", errno, strerror(errno));
-    }
-
-    fclose(servo_duty);
-    SE_DEBUG("Duty servo %d set to %u us", servo_id, duty_us);
-    data->servo[servo_id].duty_us = duty_us;
-    return kSE_SUCCESS;
+    return mtk_9050_pwm_set_duty(data->pwm_dev_name, data->pin_map[servo_id], duty_us);
 }
 
 static SE_ret_t MTK_9050_linux_set_duty(struct SE_controller *controller, uint8_t servo_id, uint32_t duty)
@@ -427,6 +283,17 @@ static SE_ret_t MTK_9050_linux_set_duty(struct SE_controller *controller, uint8_
     }
 
     return _MTK_9050_linux_set_duty(data, servo_id, duty);
+}
+
+static SE_ret_t _MTK_9050_linux_set_period(struct mtk_9050_linux_data *data, uint8_t servo_id, uint32_t period_us)
+{
+    if (!data->servo[servo_id].enable)
+    {
+        SE_set_error("Servo is not open to set period");
+        return kSE_FAILED;
+    }
+
+    return mtk_9050_pwm_set_period(data->pwm_dev_name, data->pin_map[servo_id], period_us);
 }
 
 static SE_ret_t MTK_9050_linux_set_period(struct SE_controller *controller, uint8_t servo_id, uint32_t period_us)
@@ -495,4 +362,13 @@ static uint32_t MTK_9050_linux_get_pulse_resolution(struct SE_controller *contro
     }
 
     return data->servo[servo_id].pwm_resolution;
+}
+
+static void _MTK_9050_linux_update_callback(SE_servo_t *servo)
+{
+}
+
+static SE_ret_t MTK_9050_linux_servo_callback_register(void *servo)
+{
+    return SE_servo_on_update(servo, _MTK_9050_linux_update_callback);
 }

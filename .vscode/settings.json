@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "mtk_9050_linux_controller.h": "c",
+        "mtk_9050_dc_controller.h": "c"
+    }
+}

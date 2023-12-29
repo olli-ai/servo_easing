@@ -1,6 +1,7 @@
 #include "dummy_controller.h"
 
 #include <stdbool.h>
+#include "SE_servo.h"
 #include "SE_errors.h"
 #include "SE_logging.h"
 
@@ -30,6 +31,7 @@ static const struct SE_controller_info *dummy_get_info_ref(struct SE_controller 
 static struct SE_controller_info dummy_get_info_copy(struct SE_controller *controller);
 static SE_ret_t dummy_set_id(struct SE_controller *controller, int id);
 static uint32_t dummy_get_pulse_resolution(struct SE_controller *controller, uint8_t servo_id);
+static SE_ret_t dummy_servo_callback_register(void *servo);
 
 struct dummy_servo_info
 {
@@ -76,6 +78,7 @@ static struct SE_controller dummy_controller = {
     .get_info_copy = dummy_get_info_copy,
     .set_id = dummy_set_id,
     .get_pulse_resolution = dummy_get_pulse_resolution,
+    .register_servo_event = dummy_servo_callback_register,
     .controller_data = (void *)&controller_data,
 };
 
@@ -151,7 +154,7 @@ static SE_ret_t dummy_set_period(struct SE_controller *controller, uint8_t servo
     struct dummy_data *data = (struct dummy_data*)controller->controller_data;
     data->servo[servo_id].pwm_resolution = PULSE_UNIT_US(period_us);
     data->servo[servo_id].period_us = period_us;
-    SE_DEBUG("Servo pulse resolution is %0.4f unit(s)/us", data->servo[servo_id].pwm_resolution);
+    SE_DEBUG("Servo pulse resolution is %d unit(s)/us", data->servo[servo_id].pwm_resolution);
     return kSE_SUCCESS;
 }
 
@@ -205,4 +208,15 @@ static uint32_t dummy_get_pulse_resolution(struct SE_controller *controller, uin
     }
 
     return data->servo[servo_id].pwm_resolution;
+}
+
+static void _dummy_servo_update_callback(SE_servo_t *servo)
+{
+    SE_INFO("Servo %d update", servo->id);
+}
+
+static SE_ret_t dummy_servo_callback_register(void *servo)
+{
+    SE_ret_t ret = SE_servo_on_update((SE_servo_t *)servo, _dummy_servo_update_callback);
+    return ret;
 }

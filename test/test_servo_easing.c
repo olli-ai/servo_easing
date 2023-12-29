@@ -24,7 +24,7 @@ static void on_destination_reach_cb(SE_servo_t *servo)
 
 int main()
 {
-    struct SE_controller *controller = SE_open_controller(eSE_DUMMY_CONTROLLER);
+    struct SE_controller *controller = SE_open_controller(eSE_CONTROLLER_DC_MTK_9050);
     if (controller == NULL)
     {
         SE_WARNING("%s", "Unable to open controller");

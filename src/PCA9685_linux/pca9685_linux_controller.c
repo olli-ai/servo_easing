@@ -8,6 +8,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include "SE_servo.h"
 #include "SE_errors.h"
 #include "SE_logging.h"
 
@@ -42,6 +43,7 @@ static const struct SE_controller_info *PCA9685_linux_get_info_ref(struct SE_con
 static struct SE_controller_info PCA9685_linux_get_info_copy(struct SE_controller *controller);
 static SE_ret_t PCA9685_linux_set_id(struct SE_controller *controller, int id);
 static uint32_t PCA9685_linux_get_pulse_resolution(struct SE_controller *controller, uint8_t servo_id);
+static SE_ret_t PCA9685_linux_servo_callback_register(void *servo);
 
 struct pca9685_linux_servo_info
 {
@@ -62,7 +64,7 @@ struct pca9685_linux_data
 
 static struct pca9685_linux_data controller_data = {
     .info = {
-        .name = "PCA9685_linux servo controller",
+        .name = "PCA9685_linux",
         .id = 0,
         .max_servo = PCA9685_MAX_SERVO,
         .units_for_0_degree = DEFAULT_PCA9685_UNITS_FOR_0_DEGREE,
@@ -83,6 +85,7 @@ static struct SE_controller pca9685_linux_controller = {
     .get_info_copy = PCA9685_linux_get_info_copy,
     .set_id = PCA9685_linux_set_id,
     .get_pulse_resolution = PCA9685_linux_get_pulse_resolution,
+    .register_servo_event = PCA9685_linux_servo_callback_register,
     .controller_data = (void *)&controller_data,
 };
 
@@ -464,4 +467,15 @@ static uint32_t PCA9685_linux_get_pulse_resolution(struct SE_controller *control
     }
 
     return data->servo[servo_id].pwm_resolution;
+}
+
+static void _PCA9685_linux_update_callback(SE_servo_t *servo)
+{
+    // SE_DEBUG("Servo %d update callback", servo->id);
+}
+
+static SE_ret_t PCA9685_linux_servo_callback_register(void *servo)
+{
+    SE_ret_t ret = SE_servo_on_update((SE_servo_t *) servo, _PCA9685_linux_update_callback);
+    return ret;
 }

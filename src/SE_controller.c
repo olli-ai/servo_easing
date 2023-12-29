@@ -5,7 +5,7 @@
 
 static struct SE_controller *p_controller[MAX_CONTROLLER] = {0};
 
-SE_ret_t SE_controller_register(struct SE_controller *controller)
+SE_ret_t SE_controller_register(SE_controller_t *controller)
 {
     for (int i = 0; i < MAX_CONTROLLER; i++)
     {
@@ -33,7 +33,7 @@ int SE_controller_get_available_controller(struct SE_controller_info *info)
     return j;
 }
 
-SE_ret_t SE_controller_init(struct SE_controller *controller)
+SE_ret_t SE_controller_init(SE_controller_t *controller)
 {
     return controller->controller_init(controller);
 }

@@ -51,6 +51,7 @@ struct _se_servo_data
     uint16_t current_angle;
     uint16_t expect_angle;
     SE_servo_dest_reach_cb_t reach_cb;
+    SE_servo_update_cb_t update_cb;
     uint8_t speed;
     uint8_t await_action : 2;
     uint8_t is_moving : 1;
@@ -64,7 +65,19 @@ static struct _se_servo_data servo_data_instances[MAX_SERVO_INSTANCES] = {0};
 
 static void _SE_servo_default_reach_callback(SE_servo_t *servo)
 {
-    SE_DEBUG("Servo %d destination reach %d deg", servo->id, servo->servo_data->current_angle);
+    const struct SE_controller_info *info_ref = servo->controller->get_info_ref(servo->controller);
+    SE_DEBUG("Servo %d, controller %s destination reach %d deg",
+             servo->id,
+             info_ref->name,
+             servo->servo_data->current_angle);
+}
+
+static void _SE_servo_default_update_calback(SE_servo_t *servo)
+{
+    const struct SE_controller_info *info_ref = servo->controller->get_info_ref(servo->controller);
+    SE_DEBUG("Servo %d, controller %s update",
+            servo->id,
+            info_ref->name);
 }
 
 static struct _se_servo_data *_SE_servo_get_new_data_instance()
@@ -109,6 +122,7 @@ SE_ret_t SE_servo_init(SE_servo_t *servo, SE_argument_t *args)
     servo->servo_data->milis_to_complete_move = 0;
     servo->servo_data->await_action = eSERVO_ASYNC_NONE;
     servo->servo_data->reach_cb = _SE_servo_default_reach_callback;
+    servo->servo_data->update_cb = _SE_servo_default_update_calback;
     servo->servo_data->current_units = 0;
     servo->servo_data->start_units = 0;
     servo->servo_data->end_units = 0;
@@ -196,7 +210,7 @@ static void _SE_servo_moving_update(SE_servo_t *servo)
     if (_SE_servo_is_destination_reach(data))
     {
         uint32_t unit_per_us = servo->controller->get_pulse_resolution(servo->controller, servo->id);
-        uint32_t duty = data->end_units * unit_per_us /100;
+        uint32_t duty = data->end_units * unit_per_us / 100;
         servo->controller->set_duty(servo->controller, servo->id, duty);
         data->await_action = eSERVO_ASYNC_STOP;
         data->reach_cb(servo);
@@ -220,7 +234,7 @@ static void _SE_servo_moving_update(SE_servo_t *servo)
         SE_WARNING("Unhandle direction of server in start function value is %d", data->direction);
         break;
     }
-    
+
     uint32_t unit_per_deg = (info_ref->units_for_180_degree - info_ref->units_for_0_degree) / 180;
     uint32_t unit_per_us = servo->controller->get_pulse_resolution(servo->controller, servo->id);
     uint32_t duty = data->current_units * unit_per_us / 100;
@@ -266,6 +280,7 @@ SE_ret_t SE_servo_update(SE_servo_t *servo)
     {
         _SE_servo_moving_update(servo);
     }
+    servo->servo_data->update_cb(servo);
     return kSE_SUCCESS;
 }
 
@@ -366,8 +381,7 @@ SE_ret_t SE_servo_start(SE_servo_t *servo)
     data->start_units = info_ref->units_for_0_degree + data->current_angle * unit_per_deg;
     data->end_units = info_ref->units_for_0_degree + data->expect_angle * unit_per_deg;
     SE_DEBUG("Start units %d end units %d", data->start_units, data->end_units);
-    data->delta_units = (data->end_units > data->start_units) ? (data->end_units - data->start_units):
-                        (data->start_units - data->end_units);
+    data->delta_units = (data->end_units > data->start_units) ? (data->end_units - data->start_units) : (data->start_units - data->end_units);
     SE_DEBUG("ms to complete move %d, delta units: %d", data->milis_to_complete_move,
              data->delta_units);
     data->await_action = eSERVO_ASYNC_MOVE;
@@ -410,5 +424,20 @@ SE_ret_t SE_servo_on_destination_reach(SE_servo_t *servo, SE_servo_dest_reach_cb
     }
 
     servo->servo_data->reach_cb = callback;
+    return kSE_SUCCESS;
+}
+
+SE_ret_t SE_servo_on_update(SE_servo_t *servo, SE_servo_update_cb_t callback)
+{
+    SERVO_VALIDATE(servo, kSE_NULL);
+    SERVO_DATA_VALIDATE(servo, kSE_NULL);
+
+    if (callback == NULL)
+    {
+        SE_set_error("Call back is null, will not set");
+        return kSE_NULL;
+    }
+
+    servo->servo_data->update_cb = callback;
     return kSE_SUCCESS;
 }

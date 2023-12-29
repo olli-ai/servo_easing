@@ -5,7 +5,7 @@ option(EASING_HOST_BUILD "Build servo easing library on host machine" OFF)
 option(EASING_TARGET_BUILD "Build servo easing library for target by cross" ON)
 option(EASING_USE_FLOAT "Build servo easing library with no floating point op" OFF)
 option(EASING_BUILD_TEST "Buil test app for library with dymmy controller" ON)
-add_definitions(-DUSE_OLLI_LOG)
+add_definitions(-DUSE_PRINTF_LOG)
 
 set(servo_easing_src    ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_servo.c
                         ${CMAKE_CURRENT_SOURCE_DIR}/src/SE_controller.c
@@ -28,7 +28,9 @@ endif(EASING_HOST_BUILD)
 
 if(EASING_TARGET_BUILD)
     list(APPEND servo_easing_src ${CMAKE_CURRENT_SOURCE_DIR}/src/PCA9685_linux/pca9685_linux_controller.c
-                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/MTK_9050/mtk_9050_linux_controller.c)
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/MTK_9050/mtk_9050_controller.c
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/MTK_9050/mtk_9050_pwm.c
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/MTK_9050/mtk_9050_dc_controller.c)
 endif(EASING_TARGET_BUILD)
 
 if (MCU_WITH_EXPANSION)
@@ -57,6 +59,7 @@ endif(EASING_HOST_BUILD)
 if(EASING_TARGET_BUILD)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_PCA9685_LINUX_CONTROLLER)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_MTK_9050_LINUX_CONTROLLER)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_MTK_9050_DC_CONTROLLER)
     target_link_libraries(${PROJECT_NAME} utils_olli)
 endif(EASING_TARGET_BUILD)
 

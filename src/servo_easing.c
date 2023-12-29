@@ -20,8 +20,12 @@
 #endif /*USE_PCA9685_LINUX_CONTROLLER*/
 
 #ifdef USE_MTK_9050_LINUX_CONTROLLER
-#include "MTK_9050/mtk_9050_linux_controller.h"
+#include "MTK_9050/mtk_9050_controller.h"
 #endif /*USE_MTK_9050_LINUX_CONTROLLER*/
+
+#ifdef USE_MTK_9050_DC_CONTROLLER
+#include "MTK_9050/mtk_9050_dc_controller.h"
+#endif /*USE_MTK_9050_DC_CONTROLLER*/
 
 
 SE_ret_t SE_init(void)
@@ -54,6 +58,12 @@ struct SE_controller *SE_open_controller(SE_supp_controller_t controller)
         controller_instance = mtk_9050_linux_get_controller();
         break;
 #endif /*USE_MTK_9050_LINUX_CONTROLLER*/
+
+#ifdef USE_MTK_9050_DC_CONTROLLER
+    case eSE_CONTROLLER_DC_MTK_9050:
+        controller_instance = mtk_9050_dc_motor_get_controller();
+        break;
+#endif
 
 #ifdef USE_DUMMY_CONTROLLER
     case eSE_DUMMY_CONTROLLER:
@@ -99,10 +109,15 @@ SE_ret_t SE_create_servo(SE_servo_t *new_inst, SE_argument_t args)
         break;
     case kSE_SUCCESS:
         SE_INFO("Servo init for instance");
-        SE_servo_init(new_inst, &args);
+        ret_code = SE_servo_init(new_inst, &args);
+        if (ret_code != kSE_SUCCESS)
+        {
+            break;
+        }
         new_inst->id = args.servo_id;
         new_inst->controller = controller;
         controller->set_period(controller, args.servo_id, args.period_us);
+        controller->register_servo_event((void*) new_inst);
         break;
     default:
         break;

@@ -32,6 +32,7 @@ typedef struct _se_servo
 } SE_servo_t;
 
 typedef void (*SE_servo_dest_reach_cb_t)(SE_servo_t *);
+typedef void (*SE_servo_update_cb_t)(SE_servo_t *);
 
 SE_ret_t SE_servo_init(SE_servo_t *servo, SE_argument_t *args); 
 void SE_servo_deinit(SE_servo_t *servo);
@@ -50,6 +51,7 @@ SE_ret_t SE_servo_set_milis_to_complete_move(SE_servo_t *servo, uint32_t milis);
 uint32_t SE_servo_get_delta_unit_to_move(SE_servo_t *servo);
 uint32_t SE_servo_get_start_move_milis(SE_servo_t *servo);
 SE_ret_t SE_servo_on_destination_reach(SE_servo_t *servo, SE_servo_dest_reach_cb_t cb);
+SE_ret_t SE_servo_on_update(SE_servo_t *servo, SE_servo_update_cb_t cb);
 
 #ifdef __cplusplus
 }

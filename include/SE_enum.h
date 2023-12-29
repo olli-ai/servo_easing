@@ -38,6 +38,7 @@ typedef enum _supported_controller {
     eSE_CONTROLLER_PCA9685,
     eSE_CONTROLLER_LINUX_PCA9685,
     eSE_CONTROLLER_MTK_9050,
+    eSE_CONTROLLER_DC_MTK_9050,
     eSE_DUMMY_CONTROLLER,
 } SE_supp_controller_t;
 #endif /*SERVO_EASING_ENUM_H*/

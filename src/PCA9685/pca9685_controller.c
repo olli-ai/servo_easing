@@ -38,7 +38,7 @@ struct pca9685_data
 
 static struct pca9685_data controller_data = {
     .info = {
-        .name = "PCA9685 servo controller",
+        .name = "PCA9685",
         .id = 0,
         .max_servo = PCA9685_MAX_SERVO,
         .units_for_0_degree = DEFAULT_PCA9685_UNITS_FOR_0_DEGREE,

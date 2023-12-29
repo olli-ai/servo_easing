@@ -16,7 +16,7 @@ struct SE_controller_info {
     uint32_t units_for_180_degree;
 };
 
-struct SE_controller {
+typedef struct SE_controller {
     SE_ret_t (*controller_init)(struct SE_controller*);
     void (*controller_deinit)(struct SE_controller*);
     SE_ret_t (*open_servo)(struct SE_controller*, uint8_t servo_id);
@@ -27,13 +27,14 @@ struct SE_controller {
     uint32_t (*get_pulse_resolution)(struct SE_controller*, uint8_t servo_id);
     const struct SE_controller_info *(*get_info_ref)(struct SE_controller*);
     struct SE_controller_info (*get_info_copy)(struct SE_controller*);
+    SE_ret_t (*register_servo_event)(void *servo);
     void *controller_data;
-};
+} SE_controller_t;
 
-SE_ret_t SE_controller_register(struct SE_controller *controller);
+SE_ret_t SE_controller_register(SE_controller_t *controller);
 struct SE_controller* SE_controller_get(int controller_id);
 int SE_controller_get_available_controller(struct SE_controller_info *info);
-SE_ret_t SE_controller_init(struct SE_controller *controller);
+SE_ret_t SE_controller_init(SE_controller_t *controller);
 
 #ifdef __cplusplus
 }
