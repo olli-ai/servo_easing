@@ -58,6 +58,7 @@ struct mtk_9050_dc_motor_info
     int64_t last_counter;
     uint32_t pwm_resolution;
     uint16_t delta_move;
+    uint8_t current_angle;
     uint8_t direction: 1;
     uint8_t enable: 1;
     uint8_t is_open: 1;
@@ -304,7 +305,8 @@ static SE_ret_t _MTK_9050_dc_motor_open_motor(struct mtk_9050_dc_data *data, uin
         .pwm_resolution = PULSE_UNIT_US(DEFAULT_MTK_9050_PERIOD_US),
         .last_counter = 0,
         .delta_move = 0,
-        .direction = 
+        .direction = eMOVE_DIRECT_CLOCKWISE,
+        .current_angle = 0,
     };
 
     data->motor[motor_id] = motor;
@@ -381,6 +383,28 @@ static uint8_t _MTK_9050_dc_duty_to_angle(uint32_t duty_us)
     return 0;
 }
 
+static void _MTK_9050_on_direction_changed(struct mtk_9050_dc_data *data, uint8_t motor_id, enum move_direction new_direction)
+{
+    if (new_direction == eMOVE_DIRECT_CLOCKWISE)
+    {
+        mtk_9050_pwm_set_duty(data->pwm_dev_name, data->motor_cap[motor_id].motor_backward, 0);
+    } else if (new_direction == eMOVE_DIRECT_COUNT_CLOCKWISE)
+    {
+        mtk_9050_pwm_set_duty(data->pwm_dev_name, data->motor_cap[motor_id].motor_forward, 0);
+    }
+}
+
+static void _MTK9050_direction_update_duty(struct mtk_9050_dc_data *data, uint8_t motor_id, uint32_t duty_us)
+{
+    if (data->motor[motor_id].direction == eMOVE_DIRECT_CLOCKWISE)
+    {
+        mtk_9050_pwm_set_duty(data->pwm_dev_name, data->motor_cap[motor_id].motor_forward, duty_us);
+    } else if (data->motor[motor_id].direction == eMOVE_DIRECT_COUNT_CLOCKWISE)
+    {
+        mtk_9050_pwm_set_duty(data->pwm_dev_name, data->motor_cap[motor_id].motor_backward, duty_us);
+    }
+}
+
 static SE_ret_t _MTK_9050_dc_motor_set_duty(struct mtk_9050_dc_data *data, uint8_t motor_id, uint32_t duty_us)
 {
     if (!data->motor[motor_id].enable)
@@ -389,7 +413,21 @@ static SE_ret_t _MTK_9050_dc_motor_set_duty(struct mtk_9050_dc_data *data, uint8
         return kSE_FAILED;
     }
 
-    mtk_9050_pwm_set_duty(data->pwm_dev_name, data->motor_cap[motor_id].motor_forward, duty_us);
+    uint8_t expect_angle = _MTK_9050_dc_duty_to_angle(duty_us);
+    enum move_direction direction = eMOVE_DIRECT_CLOCKWISE;
+    if (expect_angle < data->motor[motor_id].current_angle)
+    {
+        direction = eMOVE_DIRECT_COUNT_CLOCKWISE;
+    } else
+    {
+        direction = eMOVE_DIRECT_CLOCKWISE;
+    }
+    if (direction != data->motor[motor_id].direction)
+    {
+        _MTK_9050_on_direction_changed(data, motor_id, direction);
+    }
+
+    _MTK9050_direction_update_duty(data, motor_id, duty_us);
     return kSE_SUCCESS;
 }
 
@@ -499,7 +537,7 @@ static void _MTK_9050_servo_feedback_handle(struct mtk_9050_dc_data *data, SE_se
     SE_INFO("Encoder data is: %lld, %p\n", encoder_data->channel_a.a_forward, address);
     uint8_t delta = (encoder_data->channel_a.a_forward - data->motor[servo->id].last_counter);
     data->motor[servo->id].delta_move += delta;
-    SE_INFO("Delta unit is : %d\n", delta);
+    SE_INFO("Delta unit is : %d\n", data->motor[servo->id].delta_move);
     data->motor[servo->id].last_counter = encoder_data->channel_a.a_forward;
     munmap(address, 4096);
 }
